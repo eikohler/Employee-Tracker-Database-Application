@@ -1,0 +1,27 @@
+{
+  "name": "employee_tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eikohler/Employee-Tracker-Database-Application.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/eikohler/Employee-Tracker-Database-Application/issues"
+  },
+  "homepage": "https://github.com/eikohler/Employee-Tracker-Database-Application#readme",
+  "dependencies": {
+    "console.table": "^0.10.0",
+    "inquirer": "^8.2.4",
+    "mysql2": "^2.3.3"
+  },
+  "devDependencies": {
+    "jest": "^28.1.0"
+  }
+}
