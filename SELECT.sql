@@ -13,5 +13,10 @@ LEFT JOIN employees manager ON employee.manager_id = manager.id
 ORDER BY department_id, employee.role_id;
 
 
-SELECT title, roles.id, departments.d_name AS department, salary FROM roles
+SELECT roles.id AS role_id, title AS role_title, departments.d_name AS dep_name, departments.id AS dep_id FROM roles
 LEFT JOIN departments ON roles.department_id = departments.id;
+
+INSERT INTO roles (title, salary, department_id) VALUES ('dummy role', 40000, 2);
+
+SELECT id, CONCAT(first_name,' ', last_name) AS manager FROM employees
+WHERE manager_id IS NULL;
