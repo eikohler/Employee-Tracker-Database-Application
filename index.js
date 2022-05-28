@@ -1,6 +1,9 @@
 const inquirer = require('inquirer');
 const db = require('./db/connection');
+const Query = require('./lib/Query.js');
 require('console.table');
+
+const business = new Query();
 
 const next_choices = [
     'view all departments', 
@@ -10,6 +13,13 @@ const next_choices = [
     'add a role', 
     'add an employee', 
     'update an employee role',
+    'update a manager role',
+    'view employees by manager',
+    'view employees by department',
+    'delete department',
+    'delete role',
+    'delete employee',
+    'view total utilized budget of a department',
 ]
 
 const promptNext = () => {
@@ -20,16 +30,17 @@ const promptNext = () => {
         message: 'Choose an option',
         choices: next_choices
       },      
-    ]).then(choice => { 
+    ]).then(choice => {
+        let sql = "";
         switch(choice.nextChoice){
             case 'view all departments':
-                sql = `SELECT id, d_name AS department FROM departments;`;
-                db.promise().query(sql)
+                db.promise().query(`SELECT id, d_name AS department FROM departments;`)
                 .then(([rows,fields]) => {
                     console.table(rows);
                 })
                 .catch(console.log)
-                .then( () => {promptNext();}); 
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext()); 
                 break; 
             case 'view all roles':     
                 sql = `SELECT title, roles.id, departments.d_name AS department, salary FROM roles
@@ -39,7 +50,8 @@ const promptNext = () => {
                     console.table(rows);
                 })
                 .catch(console.log)
-                .then( () => {promptNext();});  
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());  
                 break;
             case 'view all employees':     
                 sql = `SELECT 
@@ -60,103 +72,79 @@ const promptNext = () => {
                     console.table(rows);
                 })
                 .catch(console.log)
-                .then( () => {promptNext();});  
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());  
                 break;
             case 'add a department': 
-                let depName = "";
                 addDepartment().then(input => {
-                    depName = input.name;
-                    sql = `INSERT INTO departments (d_name) VALUES (?)`;   
-                    db.promise().query(sql, depName)
-                    .then(() => console.log(`Added ${depName} to the database`))
-                    .catch(console.log)
-                    .then( () => {promptNext();});                   
-                });
+                    let sql = `INSERT INTO departments (d_name) VALUES (?)`;
+                    return [sql, input.name];                                         
+                }).then(([sql, name])=>db.promise().query(sql, name))
+                .then(() => console.log(`Added to the departments table`))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext()); 
                 break;
-            case 'add a role':     
-                let deps = [], depIDs = [], roleName = "";
-                sql = `SELECT id, d_name FROM departments;`;
-                db.promise().query(sql)
-                .then(([rows,fields]) => {                 
-                    rows.forEach(row => {
-                        deps.push(row.d_name);
-                        depIDs.push(row.id);
-                    });
-                })
-                .then(() => addRole(deps))
+            case 'add a role':  
+                addRole()
                 .then(input => {
-                    roleName = input.name;
-                    let depID = depIDs[deps.indexOf(input.department)];
                     let sql = `INSERT INTO roles (title, salary, department_id) VALUES (?, ?, ?);`;
-                    let params = [roleName, input.salary, depID];
+                    let params = [input.name, input.salary, business.getID(input.department)];
                     return [sql, params];
                 }).then(([sql, params]) => db.promise().query(sql, params))
-                .then(() => console.log(`Added ${roleName} to the database`))
+                .then(() => console.log(`Added to the roles table`))
                 .catch(console.log)
-                .then( () => {promptNext();});                
-                break;
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());                
+                 break;
             case 'add an employee':   
-                let roles = [], roleIDs = [], managers = [], managerIDs = [], employeeName = "";
-                let sqlRole = `SELECT id, title FROM roles;`;
-                let sqlManager = `SELECT id, CONCAT(first_name,' ', last_name) AS manager FROM employees
-                WHERE manager_id IS NULL;`;
-                db.promise().query(sqlRole)
-                .then(([rows,fields]) => {                 
-                    rows.forEach(row => {
-                        roles.push(row.title);
-                        roleIDs.push(row.id);
-                    });
-                }).then(() => db.promise().query(sqlManager))
-                .then(([rows,fields]) => {                 
-                    rows.forEach(row => {
-                        managers.push(row.manager);
-                        managerIDs.push(row.id);
-                    });
-                })
-                .then(() => addEmployee(roles, managers))
-                .then(input => {
-                    employeeName = input.first_name + " " + input.last_name;
-                    let roleID = roleIDs[roles.indexOf(input.role)];
-                    let managerID = managerIDs[managers.indexOf(input.manager)];
+                addEmployee()
+                .then(input => {                                    
                     let sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) 
                     VALUES (?, ?, ?, ?);`;
-                    let params = [input.first_name, input.last_name, roleID, managerID];
+                    let params = [input.first_name, input.last_name, business.getID(input.role), business.getID(input.manager)];
                     return [sql, params];
                 }).then(([sql, params]) => db.promise().query(sql, params))
-                .then(() => console.log(`Added ${employeeName} to the database`))
+                .then(() => console.log(`Added to the employees table`))
                 .catch(console.log)
-                .then( () => {promptNext();}); 
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext()); 
                 break;
-            case 'update an employee role':     
-                let empRoles = [], empRoleIDs = [], emps = [], empIDs = [], empName = "", empRoleName = "";
-                let sqlRoles = `SELECT id, title FROM roles;`;
-                let sqlEmployees = `SELECT id, CONCAT(first_name,' ', last_name) AS name FROM employees;`;
-                db.promise().query(sqlRoles)
-                .then(([rows,fields]) => {                 
-                    rows.forEach(row => {
-                        empRoles.push(row.title);
-                        empRoleIDs.push(row.id);
-                    });
-                }).then(() => db.promise().query(sqlEmployees))
-                .then(([rows,fields]) => {                 
-                    rows.forEach(row => {
-                        emps.push(row.name);
-                        empIDs.push(row.id);
-                    });
-                })
-                .then(() => updateEmployee(empRoles, emps))
-                .then(input => {
-                    empName = input.employee;
-                    empRoleName = input.role;
-                    let roleID = empRoleIDs[empRoles.indexOf(input.role)];
-                    let employeeID = empIDs[emps.indexOf(input.employee)];
+            case 'update an employee role':                     
+                updateEmployee(business.getEmployees())
+                .then(input => {                    
                     let sql = `UPDATE employees SET role_id = ? WHERE id = ?;`;
-                    let params = [roleID, employeeID];
+                    let params = [business.getID(input.role), business.getID(input.employee)];
                     return [sql, params];
                 }).then(([sql, params]) => db.promise().query(sql, params))
-                .then(() => console.log(`${empName}'s role has been changed to ${empRoleName}`))
+                .then(() => console.log(`Updated the employee`))
                 .catch(console.log)
-                .then( () => {promptNext();}); 
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext()); 
+                break;
+            case 'update a manager role':
+                updateEmployee(business.getManagers())
+                .then(input => {                    
+                    let sql = `UPDATE employees SET role_id = ? WHERE id = ?;`;
+                    let params = [business.getID(input.role), business.getID(input.employee)];
+                    return [sql, params];
+                }).then(([sql, params]) => db.promise().query(sql, params))
+                .then(() => console.log(`Updated the manager`))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
+                break;
+            case 'view employees by manager':
+                break;
+            case 'view employees by department':
+                break;
+            case 'delete department':
+                break;
+            case 'delete role':
+                break;
+            case 'delete employee':
+                break;
+            case 'view total utilized budget of a department':
                 break;
         }                
     });
@@ -179,7 +167,7 @@ const addDepartment = () => {
     ]);
 };
 
-const addRole = deps => {
+const addRole = () => {
     return inquirer.prompt([
         {
             type: 'input',
@@ -209,12 +197,12 @@ const addRole = deps => {
             type: 'list',
             name: 'department',
             message: 'Which department does the role belong to?',
-            choices: deps
+            choices: business.getDepartments()
         },
     ]);
 };
 
-const addEmployee = (roles, managers) => {
+const addEmployee = () => {
     return inquirer.prompt([
         {
             type: 'input',
@@ -244,17 +232,17 @@ const addEmployee = (roles, managers) => {
             type: 'list',
             name: 'role',
             message: 'What is the employee’s role?',
-            choices: roles
+            choices: business.getRoles()
         },    
         {
             type: 'list',
             name: 'manager',
             message: 'Who is the employee’s manager?',
-            choices: managers
+            choices: business.getManagers()
         },    
     ]);
 };
-const updateEmployee = (roles, employees) => {
+const updateEmployee = (employees) => {
     return inquirer.prompt([            
         {
             type: 'list',
@@ -266,9 +254,9 @@ const updateEmployee = (roles, employees) => {
             type: 'list',
             name: 'role',
             message: 'What is their new role?',
-            choices: roles
+            choices: business.getRoles()
         },    
     ]);
 };
 
-promptNext();
+business.updateAll().then(()=>promptNext());
