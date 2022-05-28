@@ -154,7 +154,7 @@ const promptNext = () => {
                     let params = [roleID, employeeID];
                     return [sql, params];
                 }).then(([sql, params]) => db.promise().query(sql, params))
-                .then(() => console.log(`${employeeName}'s role has been changed to ${empRoleName}`))
+                .then(() => console.log(`${empName}'s role has been changed to ${empRoleName}`))
                 .catch(console.log)
                 .then( () => {promptNext();}); 
                 break;
