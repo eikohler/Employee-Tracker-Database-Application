@@ -9,17 +9,17 @@ const next_choices = [
     'view all departments', 
     'view all roles', 
     'view all employees', 
+    'view employees by manager',
+    'view employees by department',
+    'view total utilized budget of a department',
     'add a department', 
     'add a role', 
     'add an employee', 
     'update an employee role',
     'update a manager role',
-    'view employees by manager',
-    'view employees by department',
     'delete department',
     'delete role',
     'delete employee',
-    'view total utilized budget of a department',
 ]
 
 const promptNext = () => {
@@ -35,9 +35,7 @@ const promptNext = () => {
         switch(choice.nextChoice){
             case 'view all departments':
                 db.promise().query(`SELECT id, d_name AS department FROM departments;`)
-                .then(([rows,fields]) => {
-                    console.table(rows);
-                })
+                .then(([rows,fields])=>console.table(rows))
                 .catch(console.log)
                 .then(()=>business.updateAll())  
                 .then(()=>promptNext()); 
@@ -46,9 +44,7 @@ const promptNext = () => {
                 sql = `SELECT title, roles.id, departments.d_name AS department, salary FROM roles
                 LEFT JOIN departments ON roles.department_id = departments.id;`;
                 db.promise().query(sql)
-                .then(([rows,fields]) => {
-                    console.table(rows);
-                })
+                .then(([rows,fields])=>console.table(rows))
                 .catch(console.log)
                 .then(()=>business.updateAll())  
                 .then(()=>promptNext());  
@@ -68,9 +64,7 @@ const promptNext = () => {
                 LEFT JOIN employees manager ON employee.manager_id = manager.id
                 ORDER BY department_id, employee.role_id;`;
                 db.promise().query(sql)
-                .then(([rows,fields]) => {
-                    console.table(rows);
-                })
+                .then(([rows,fields])=>console.table(rows))
                 .catch(console.log)
                 .then(()=>business.updateAll())  
                 .then(()=>promptNext());  
@@ -104,7 +98,7 @@ const promptNext = () => {
                     VALUES (?, ?, ?, ?);`;
                     let params = [input.first_name, input.last_name, business.getID(input.role), business.getID(input.manager)];
                     return [sql, params];
-                }).then(([sql, params]) => db.promise().query(sql, params))
+                }).then(([sql, params])=>db.promise().query(sql, params))
                 .then(() => console.log(`Added to the employees table`))
                 .catch(console.log)
                 .then(()=>business.updateAll())  
@@ -135,16 +129,102 @@ const promptNext = () => {
                 .then(()=>promptNext());
                 break;
             case 'view employees by manager':
+                selectManager()
+                .then(input => {                    
+                    let sql = `SELECT 
+                    employee.id,
+                    employee.first_name,
+                    employee.last_name,
+                    roles.title,
+                    departments.d_name AS department,
+                    roles.salary,
+                    CONCAT(manager.first_name,' ', manager.last_name) AS manager
+                    FROM employees employee
+                    JOIN roles ON employee.role_id = roles.id
+                    JOIN departments ON roles.department_id = departments.id
+                    JOIN employees manager ON employee.manager_id = manager.id
+                    AND employee.manager_id = ?
+                    ORDER BY department_id, employee.role_id;`;
+                    return [sql, business.getID(input.manager)];
+                }).then(([sql, params])=>db.promise().query(sql, params))
+                .then(([rows,fields])=>console.table(rows))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
                 break;
             case 'view employees by department':
+                selectDepartment()
+                .then(input => {                    
+                    let sql = `SELECT 
+                    employee.id,
+                    employee.first_name,
+                    employee.last_name,
+                    roles.title,
+                    departments.d_name AS department,
+                    roles.salary,
+                    CONCAT(manager.first_name,' ', manager.last_name) AS manager
+                    FROM employees employee
+                    JOIN roles ON employee.role_id = roles.id
+                    JOIN departments ON roles.department_id = departments.id
+                    AND departments.id = ?
+                    LEFT JOIN employees manager ON employee.manager_id = manager.id
+                    ORDER BY department_id, employee.role_id;`;
+                    return [sql, business.getID(input.department)];
+                }).then(([sql, params])=>db.promise().query(sql, params))
+                .then(([rows,fields])=>console.table(rows))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
                 break;
             case 'delete department':
+                selectDepartment()
+                .then(input => {                    
+                    let sql = `DELETE FROM departments WHERE id = ?;`;
+                    return [sql, business.getID(input.department)];
+                }).then(([sql, params])=>db.promise().query(sql, params))
+                .then(() => console.log(`Department has been removed`))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
                 break;
             case 'delete role':
+                selectRole()
+                .then(input => {                    
+                    let sql = `DELETE FROM roles WHERE id = ?;`;
+                    return [sql, business.getID(input.role)];
+                }).then(([sql, params])=>db.promise().query(sql, params))
+                .then(() => console.log(`Role has been removed`))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
                 break;
             case 'delete employee':
+                selectEmployee()
+                .then(input => {                    
+                    let sql = `DELETE FROM employees WHERE id = ?;`;
+                    return [sql, business.getID(input.employee)];
+                }).then(([sql, params])=>db.promise().query(sql, params))
+                .then(() => console.log(`Employee has been removed`))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
                 break;
             case 'view total utilized budget of a department':
+                selectDepartment()
+                .then(input => {                    
+                    let sql = `SELECT 
+                    departments.d_name AS department,
+                    SUM(roles.salary) AS total_utilized_budget
+                    FROM employees employee
+                    JOIN roles ON employee.role_id = roles.id
+                    JOIN departments ON roles.department_id = departments.id
+                    AND departments.id = ?;`;
+                    return [sql, business.getID(input.department)];
+                }).then(([sql, params])=>db.promise().query(sql, params))
+                .then(([rows,fields])=>console.table(rows))
+                .catch(console.log)
+                .then(()=>business.updateAll())  
+                .then(()=>promptNext());
                 break;
         }                
     });
@@ -256,6 +336,50 @@ const updateEmployee = (employees) => {
             message: 'What is their new role?',
             choices: business.getRoles()
         },    
+    ]);
+};
+
+const selectManager = () => {
+    return inquirer.prompt([            
+        {
+            type: 'list',
+            name: 'manager',
+            message: 'Select a manager',
+            choices: business.getManagers()
+        },      
+    ]);
+};
+
+const selectDepartment = () => {
+    return inquirer.prompt([            
+        {
+            type: 'list',
+            name: 'department',
+            message: 'Select a department',
+            choices: business.getDepartments()
+        },      
+    ]);
+};
+
+const selectEmployee = () => {
+    return inquirer.prompt([            
+        {
+            type: 'list',
+            name: 'employee',
+            message: 'Select an employee',
+            choices: business.getEmployees()
+        },      
+    ]);
+};
+
+const selectRole = () => {
+    return inquirer.prompt([            
+        {
+            type: 'list',
+            name: 'role',
+            message: 'Select a role',
+            choices: business.getRoles()
+        },      
     ]);
 };
 
