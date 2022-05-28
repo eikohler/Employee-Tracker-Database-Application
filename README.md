@@ -24,3 +24,4 @@
 - Finally, to add abstraction and ease of coding I setup a Query.js class that would return arrays for the necessary lists that would be displayed for the user's input, i.e. getDepartments, getEmployees, getRoles
 - These lists would be updated after each user request/change through mysql queries setup on that class in promise chains, and it would make for easy lookups to the table ids aswell.
 
+- Walkthrough Video: https://youtu.be/jCID_-GBZas
